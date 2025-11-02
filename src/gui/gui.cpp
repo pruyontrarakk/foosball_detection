@@ -1,3 +1,4 @@
+#include <iostream>
 #include "gui/gui.hpp"
 #include <string>
 #include <sstream>
@@ -25,33 +26,33 @@ void gui::handlePressedKeys(int key, bool& originalEnabled, bool& trackingEnable
 			exit(EXIT_SUCCESS);
 		case 'o': //'t' has been pressed. this will toggle tracking
 			originalEnabled = !originalEnabled;
-			if(originalEnabled == false) cout<<"Origin frame disabled."<<endl;
-			else cout<<"Origin frame enabled."<<endl;
+			if(originalEnabled == false) std::cout<<"Origin frame disabled."<<std::endl;
+			else std::cout<<"Origin frame enabled."<<std::endl;
 			break;
 		case 't': //'t' has been pressed. this will toggle tracking
 			trackingEnabled = !trackingEnabled;
-			if(trackingEnabled == false) cout<<"Tracking ball disabled."<<endl;
-			else cout<<"Tracking ball enabled."<<endl;
+			if(trackingEnabled == false) std::cout<<"Tracking ball disabled."<<std::endl;
+			else std::cout<<"Tracking ball enabled."<<std::endl;
 			break;
 		case 'b': //'b' has been pressed. this will toggle blue players detection
 			blueDetectionEnabled = !blueDetectionEnabled;
-			if(blueDetectionEnabled == false) cout<<"Blue players detection disabled."<<endl;
-			else cout<<"Blue players detection enabled."<<endl;
+			if(blueDetectionEnabled == false) std::cout<<"Blue players detection disabled."<<std::endl;
+			else std::cout<<"Blue players detection enabled."<<std::endl;
 			break;
 		case 'r': //'r' has been pressed. this will toggle red players detection
 			redDetectionEnabled = !redDetectionEnabled;
-			if(redDetectionEnabled == false) cout<<"Red players detection disabled."<<endl;
-			else cout<<"Red players detection enabled."<<endl;
+			if(redDetectionEnabled == false) std::cout<<"Red players detection disabled."<<std::endl;
+			else std::cout<<"Red players detection enabled."<<std::endl;
 			break;
 		case 'd': //'d' has been pressed. this will debug mode
 			debugMode = !debugMode;
-			if(debugMode == false) cout<<"Debug mode disabled."<<endl;
-			else cout<<"Debug mode enabled."<<endl;
+			if(debugMode == false) std::cout<<"Debug mode disabled."<<std::endl;
+			else std::cout<<"Debug mode enabled."<<std::endl;
 			break;
 		case 'p': //'p' has been pressed. this will pause/resume the code.
 			pause = !pause;
 			if(pause == true){ 
-				cout<<"Code paused, press 'p' again to resume"<<endl;
+				std::cout<<"Code paused, press 'p' again to resume"<<std::endl;
 				while (pause == true){
 					//stay in this loop until 
 					switch (cv::waitKey()){
@@ -59,7 +60,7 @@ void gui::handlePressedKeys(int key, bool& originalEnabled, bool& trackingEnable
 						case 'p': 
 						//change pause back to false
 						pause = false;
-						cout<<"Code resumed."<<endl;
+						std::cout<<"Code resumed."<<std::endl;
 						break;
 					}
 				}

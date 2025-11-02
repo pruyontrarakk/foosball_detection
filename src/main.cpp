@@ -88,8 +88,8 @@ int main()
         const double deltaTicks = (foundBallsState.getTicks() - precTick) / cv::getTickFrequency();
 		
         // Remove distortion from capture frame
-        frame = cameraCalibration.getUndistortedImage(frame);
-        nextFrame = cameraCalibration.getUndistortedImage(nextFrame);
+        // frame = cameraCalibration.getUndistortedImage(frame);
+        // nextFrame = cameraCalibration.getUndistortedImage(nextFrame);
 
         // Detect aruco markers on captured frame and find table bounding box
         aruco::detectArucoOnFrame(frame, aruco_dict, found, rejected, detector);
@@ -127,7 +127,7 @@ int main()
 	bluePlayersFinder.clearVectors();
         foundBallsState.clearVectors();
 
-	gui::handlePressedKeys(cv::waitKey(10), originalEnabled, trackingEnabled,
+	gui::handlePressedKeys(cv::waitKey(100), originalEnabled, trackingEnabled,
 			       blueDetectionEnabled, redDetectionEnabled, pause, debugMode);
     }
 	
