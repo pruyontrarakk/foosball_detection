@@ -1,4 +1,54 @@
 #include "detection/detection.hpp"
+#include <fstream>
+#include <chrono>
+#include <iostream>
+#include <fstream>
+#include <chrono>
+#include <iostream>
+#include <filesystem>
+
+static const char* kCSV_OUT = "/home/a2rlab/Documents/foosball/ball_pixels.csv"; // change if needed
+
+namespace {
+    std::ofstream g_log;
+    bool g_log_inited = false;
+    std::chrono::steady_clock::time_point g_t0;
+
+    void close_logger() {
+        if (g_log_inited) {
+            g_log.flush();
+            g_log.close();
+            g_log_inited = false;
+        }
+    }
+
+    inline void init_logger_once() {
+        if (!g_log_inited) {
+            std::cerr << "[cwd] " << std::filesystem::current_path() << "\n";
+            std::cerr << "[csv] opening " << kCSV_OUT << "\n";
+            g_log.open(kCSV_OUT, std::ios::out | std::ios::trunc);
+            if (!g_log.is_open()) {
+                std::cerr << "[csv] FAILED to open file. Check path/permissions.\n";
+                return;
+            }
+            g_log.setf(std::ios::unitbuf);                 // auto-flush each write
+            g_log << "t_sec,u_px,v_px\n";
+            g_t0 = std::chrono::steady_clock::now();
+            g_log_inited = true;
+            std::atexit(close_logger);
+        }
+    }
+
+    inline void log_px_row(const cv::Point2f& px) {
+        if (!g_log_inited) return;
+        double t = std::chrono::duration<double>(std::chrono::steady_clock::now() - g_t0).count();
+        g_log << t << "," << px.x << "," << px.y << "\n";
+        static int n = 0; if ((++n % 100) == 0) g_log.flush();
+    }
+}
+
+
+
 
 void detection::detectPlayers(bool detectionEnabled, bool debugMode, Mode mode,
                               PlayersFinder& playersFinder, cv::Mat& frame, cv::Mat& restul)
@@ -41,7 +91,9 @@ void detection::trackBall(bool trackingEnabled, bool debugMode,
         foundBallsState.contoursFiltering(trackingFrame);
 		foundBallsState.detectedBallsResult(restul);
 		foundBallsState.updateFilter();
-		
+		// ---- LOG BALL CENTER (PIXELS) TO CSV ----
+
+				
         if(debugMode) cv::imshow(title, trackingFrame);
 		else try { cv::destroyWindow(title); } catch(...){}
 	
@@ -66,13 +118,14 @@ cv::Mat detection::tracking(cv::Mat image1, cv::Mat image2)
 
 cv::Scalar detection::getColorForMode(detection::Mode mode, int colorIndex)
 {
-    if (mode == detection::Mode::BALL) {
-        // white ball
-        if (colorIndex == 0)
-            return cv::Scalar(0, 0, 200);
-        else
-            return cv::Scalar(180, 40, 255);
+     if (mode == detection::Mode::BALL) {
+        // red ball (H in [0,10])
+        if (colorIndex == 0)  // lower
+            return cv::Scalar(0, 120, 70);
+        else                  // upper
+            return cv::Scalar(10, 255, 255);
     }
+
 
     if (mode == detection::Mode::BLUE_PLAYERS) {
         // your yellow guys
@@ -89,6 +142,9 @@ cv::Scalar detection::getColorForMode(detection::Mode mode, int colorIndex)
         else
             return cv::Scalar(200, 255, 255);
     }
+
+	return cv::Scalar(0,0,0);
+
 }
 	
 
@@ -117,22 +173,59 @@ cv::Mat detection::getMaskForMode(Mode mode, cv::Size size)
 
 cv::Mat detection::transformToHSV(cv::Mat image, Mode mode)
 {
-	cv::Mat hsvImage;
-	cv::cvtColor(image, hsvImage, cv::COLOR_BGR2HSV);
-	cv::Mat maskedHSVImage;
-	hsvImage.copyTo(maskedHSVImage, getMaskForMode(mode, cv::Size(hsvImage.cols, hsvImage.rows)));
-	cv::Mat lowerHueRange;
-	cv::Mat upperHueRange;
-	cv::inRange(maskedHSVImage, getColorForMode(mode, 0), getColorForMode(mode, 1), lowerHueRange);
-	cv::inRange(maskedHSVImage, getColorForMode(mode, 0), getColorForMode(mode, 1), upperHueRange);
+    cv::Mat hsvImage;
+    cv::cvtColor(image, hsvImage, cv::COLOR_BGR2HSV);
 
-	cv::Mat hueImage;
-	cv::addWeighted(lowerHueRange, 1.0, upperHueRange, 1.0, 0.0, hueImage);
-    cv::erode(hueImage, hueImage, cv::Mat(), cv::Point(-1, -1), 2);
-    cv::dilate(hueImage, hueImage, cv::Mat(), cv::Point(-1, -1), 2);
-	cv::GaussianBlur(hueImage, hueImage, cv::Size(9, 9), 2, 2);
-	return hueImage;
+    // Apply geometric mask (skips masking for BALL as in your code)
+    cv::Mat maskedHSVImage;
+    hsvImage.copyTo(maskedHSVImage, getMaskForMode(mode, cv::Size(hsvImage.cols, hsvImage.rows)));
+
+    cv::Mat hueImage;
+
+    if (mode == detection::Mode::BALL) {
+        // ----- Red wraps around hue=0,179 -> need TWO ranges -----
+        // low-red (0..10)
+        cv::Mat lowRed;
+        cv::inRange(
+            maskedHSVImage,
+            /* lower */ cv::Scalar(0,   120, 70),
+            /* upper */ cv::Scalar(10,  255, 255),
+            lowRed
+        );
+
+        // high-red (170..179)  (OpenCV H is [0,179])
+        cv::Mat highRed;
+        cv::inRange(
+            maskedHSVImage,
+            /* lower */ cv::Scalar(170, 120, 70),
+            /* upper */ cv::Scalar(179, 255, 255),
+            highRed
+        );
+
+        // combine both bands
+        cv::bitwise_or(lowRed, highRed, hueImage);
+    } else {
+        // players: single band from getColorForMode(mode, 0..1)
+        cv::inRange(
+            maskedHSVImage,
+            getColorForMode(mode, 0),
+            getColorForMode(mode, 1),
+            hueImage
+        );
+    }
+
+    // Clean up
+    cv::erode(hueImage,  hueImage,  cv::Mat(), cv::Point(-1, -1), 2);
+    cv::dilate(hueImage, hueImage,  cv::Mat(), cv::Point(-1, -1), 2);
+    cv::GaussianBlur(hueImage, hueImage, cv::Size(9, 9), 2, 2);
+
+    return hueImage;
 }
+
+cv::Point detection::FoundBallsState::getCenter() const {
+    return center;
+}
+
 
 detection::FoundBallsState::FoundBallsState(double ticks, bool foundball, int notFoundCount) 
 				: ticks(ticks), foundball(foundball), notFoundCount(notFoundCount)
@@ -213,21 +306,30 @@ void detection::FoundBallsState::detectedBalls(cv::Mat& res, double dT)
     cv::circle(res, center, 2, CV_RGB(255,0,255), -1);
     cv::rectangle(res, predRect, CV_RGB(255,0,255), 2);
 }
-
 void detection::FoundBallsState::detectedBallsResult(cv::Mat& res)
 {
-	for (size_t i = 0; i < balls.size(); i++)
-   	{
-       	cv::drawContours(res, balls, i, CV_RGB(20,150,20), 1);
-       	cv::rectangle(res, ballsBox[i], CV_RGB(0,255,0), 2);
+    init_logger_once();  // open file and print diagnostics once
 
-		cv::Point c;
-		c.x = ballsBox[i].x + ballsBox[i].width / 2;
-       	c.y = ballsBox[i].y + ballsBox[i].height / 2;
-		setCenter(c);
-       	cv::circle(res, center, 2, CV_RGB(20,150,20), -1);
-   	}
+    for (size_t i = 0; i < balls.size(); i++)
+    {
+        cv::drawContours(res, balls, i, CV_RGB(20,150,20), 1);
+        cv::rectangle(res, ballsBox[i], CV_RGB(0,255,0), 2);
+
+        cv::Point c;
+        c.x = ballsBox[i].x + ballsBox[i].width / 2;
+        c.y = ballsBox[i].y + ballsBox[i].height / 2;
+        setCenter(c);
+        cv::circle(res, center, 2, CV_RGB(20,150,20), -1);
+
+        if (i == 0) { // one row per frame
+            log_px_row(cv::Point2f((float)c.x, (float)c.y));
+            std::cerr << "[log] u=" << c.x << " v=" << c.y << "\n";
+        }
+    }
 }
+
+
+
 
 
 void detection::FoundBallsState::updateFilter() 

@@ -30,6 +30,8 @@ namespace detection
 		cv::KalmanFilter kalmanFilter;
 		cv::Mat state;  
     	cv::Mat meas;
+		cv::Point getCenter() const;
+
 			
 		vector<vector<cv::Point> > contours;
         vector<vector<cv::Point> > balls;
@@ -40,7 +42,6 @@ namespace detection
 		double getTicks() { return ticks; }
 		void setTicks(double newTicks) { ticks = newTicks; }
 
-		cv::Point getCenter() const { return center; }
 
 		bool getFoundball() {return foundball; }
 		void setFoundball(bool newFoundball) {foundball = newFoundball; }
@@ -48,8 +49,7 @@ namespace detection
 		int getNotFoundCount() {return notFoundCount; }
 		void setNotFoundCount(int newNotFoundCount) {notFoundCount = newNotFoundCount; }
 
-	    cv::Point getCenter() {return center; }
-        void setCenter(cv::Point x);
+  	    void setCenter(cv::Point x);
 
 		void clearVectors()
 		{
